@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32S3 Web BLE Example</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+
+</head>
+
+<body>
+    <button id="connect">connect ESP32S3</button>
+    <div id="value">waiting for data...</div>
+    <div id="connectionStatus">disconnected</div>
+    <div id="chart"></div> <!-- Div for the D3 chart -->
+    <div id="sampleRate">Sample Rate: Calculating...</div> <!-- Div for the sample rate -->
+
+    <script>
+        document.querySelector('#connect').addEventListener('click', function () {
+            const serviceUuid = '453184cc-3737-47be-ab4b-9a6991a92d6d';
+            const characteristicUuid = 'bff7f0c9-5fbf-4b63-8d83-b8e077176fbe';
+            let device, server, service, characteristic;
+
+
+            // Sample rate calculation
+            // let lastUpdateTime = Date.now();
+            // let sampleCount = 0;
+            // function updateSampleRate() {
+            //     const now = Date.now();
+            //     sampleCount++;
+            //     if (now - lastUpdateTime >= 1000) { // Every second
+            //         const rate = sampleCount / ((now - lastUpdateTime) / 1000);
+            //         document.getElementById('sampleRate').textContent = `Sample Rate: ${rate.toFixed(2)} samples/sec`;
+            //         lastUpdateTime = now;
+            //         sampleCount = 0;
+            //     }
+            // }
+
+
+            navigator.bluetooth.requestDevice({
+                filters: [{ services: [serviceUuid] }],
+            })
+                .then(selectedDevice => {
+                    device = selectedDevice;
+                    console.log('Connecting to device...', device);
+                    updateConnectionStatus(true);
+                    return device.gatt.connect();
+                })
+                .then(gattServer => {
+                    server = gattServer;
+                    console.log('Getting service...', serviceUuid);
+                    return server.getPrimaryService(serviceUuid);
+                })
+                .then(service => {
+                    console.log('Getting characteristic...', characteristicUuid);
+                    return service.getCharacteristic(characteristicUuid);
+                })
+                .then(characteristic => {
+                    console.log('Reading values...');
+                    characteristic.startNotifications().then(char => {
+                        char.addEventListener('characteristicvaluechanged', (event) => {
+                            let value = event.target.value;
+                            let decoder = new TextDecoder('utf-8');
+                            let stringValue = decoder.decode(value);
+                            document.getElementById('value').textContent = 'Received: ' + stringValue;
+
+                            updateSampleRate();
+
+                        });
+                    });
+                })
+                .catch(error => {
+                    console.error('Connection failed!', error);
+                    updateConnectionStatus(false);
+                });
+
+            // Handle disconnect
+            device.addEventListener('gattserverdisconnected', () => {
+                updateConnectionStatus(false);
+            });
+        });
+
+        function updateConnectionStatus(connected) {
+            const statusElement = document.getElementById('connectionStatus');
+            if (connected) {
+                statusElement.textContent = 'connected';
+            } else {
+                statusElement.textContent = 'disconnected';
+            }
+        }
+    </script>
+</body>
+
+</html>
