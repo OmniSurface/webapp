@@ -1,2 +1,3 @@
 - `index.html` is a pure front-end (no back-end) WebBLE-based app.
 - `app.py` and `templates` folder is reserved for possible future deployment of Python backend using Flask.
+- `app18.py` is the latest version of the web app designed to link with and control Azure Storage Table up to May 10.
