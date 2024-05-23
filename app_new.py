@@ -3,6 +3,9 @@ import time
 import azure_connection
 import base64
 from streamlit_extras.stylable_container import stylable_container
+from streamlit_extras.row import row
+from streamlit_modal import Modal
+
 from PIL import Image
 
 
@@ -11,54 +14,185 @@ from PIL import Image
 def btn_callback():
     st.session_state.display_result=False
 
-
+def encode_image(image_path):
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
+ 
+@st.experimental_dialog("Edit Gesture Mapping")
+def edit_gesture_mapping(gesture):
+    st.subheader(f"Gesture: {gesture}")
+    object = st.selectbox("Select the Object to Control", ["Red Light", "Green Light", "Blue Light"])
+    if object == "Red Light":
+        virtualPin = 1
+    elif object == "Green Light":
+        virtualPin = 2
+    elif object == "Blue Light":
+        virtualPin = 3
+    action = st.selectbox("Select the Action to Trigger", ["Turn On/Off"])
+    if st.button("Save"):
+        azure_connection.update_gesture_mapping(gesture, object, action, virtualPin)
+        st.session_state.page = "home"
+        st.rerun()
 # Streamlit UI------------------------------------------------------------------
 
 
 def display_home():
-    # with stylable_container(
-    #     key="intro",
-    #     css_styles='''
-    #         {
-    #             background-color: #D8D8D8;
-    #             background-image: url("data:img/background.png");
-    #             background-size: 100vw 100vh;
-    #             # color: black;
-    #         }'''
-    # ):
-    #     st.title("OmniSurface")
-    #     if st.button("Train New Gesture"):
-    #         st.session_state.page = "train_new_gesture"
-    #         st.rerun()
 
-    # bg_image_base64 = encode_image("img/background.jpg")
-
-        
-    # st.markdown('''
-    #             <style>
-    #                 [data-testid="stAppViewContainer"] > .main  {
-    #                     # background-color: #D8D8D8;
-    #                     background-image: url("data:image/jpg;base64,{bg_image_base64}");
-
-    #                     background-size: 100%, 50%;
-    #                 }
-    #             </style>
-    #         ''', unsafe_allow_html=True)
-
-    
-    st.title("OmniSurface")
-    st.markdown("**Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat...**")
-    st.text(" ")
-    st.text(" ")
-    st.text(" ")
-    st.text(" ")
-    st.text(" ")
-
-    if st.button("Train New Gesture"):
-        st.session_state.page = "train_new_gesture"
+    if st.session_state.label != "":
+        azure_connection.delete_blob("omnisurface-ml-data", f"{st.session_state.label}.json")
+        st.session_state.label = ""
+        st.session_state.count = 0
+        azure_connection.update_env_variables(label="", data_count=0)
         st.rerun()
 
+    bg_image_base64 = encode_image("img/background.png")
+
+    st.markdown(f'''
+        <style>
+            [data-testid="stAppViewContainer"] > .main  {{
+                background-image: url("data:image/png;base64,{bg_image_base64}");
+                # background-color: black;
+                background-size: 100% 100%;
+                background-repeat: no-repeat;
+                background-position: top center;
+                background-attachment: local;
+            }}
+        </style>
+        ''', unsafe_allow_html=True)
+    
+    st.markdown(
+        """
+        <style>
+            div[data-testid="column"]:nth-of-type(2) 
+            {
+                text-align: end;
+                min-width: 400px;
+                max-width: 500px;
+            } 
+        </style>
+        """,unsafe_allow_html=True
+    )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.text(" ")
+        st.text(" ")   
+        st.text(" ") 
+        st.text(" ")
+
+        # title
+        st.markdown('''
+        <p style = "
+        color: white;
+;
+        font-size: 60px;
+        font-weight: bold;
+        font-family: 'Inter', sans-serif;
+        ">
+        OmniSurface
+        </p>
+        ''', unsafe_allow_html=True)
+
+
+        # subtitle
+        st.markdown('''
+        <p style = "
+        color: white;
+        font-size: 30px;
+        font-family: 'Inter', sans-serif;
+        ">
+        Create Your Limitless Surface Console
+        </p>
+        ''', unsafe_allow_html=True)
+
+
+        # text
+        st.markdown('''
+        <p style = "
+        color: white;
+        font-size: 20px;
+        font-family: 'Inter', sans-serif;
+        ">
+        1 Gesture + 1 Applied Surface = Customized Remote Control
+        </p>
+        ''', unsafe_allow_html=True)
+
+        st.text(" ")
+        st.text(" ")
+        st.text(" ")
+        st.text(" ")
+
+        if st.button("Train New Gesture"):
+            st.session_state.page = "train_new_gesture"
+            st.rerun()
+    
+    with col2:
+        st.image("img/figure.png")
+
+
+    st.text(" ")
+    st.text(" ")
+    st.text(" ")
+
+
+    with stylable_container(
+    key="gesture_list",
+    css_styles='''
+        {
+            background-color: #FFFFFF;
+            color: black;
+            border-radius: 40px;
+            padding: 30px 40px;
+        }
+        '''
+    ):
+        
+        # header = row([1, 1], vertical_align="bottom")
+        # header.subheader("Gesture List")
+        # header.button("Refresh", key="refresh_gesture_list")
+        st.subheader("Gesture List")
+
+        st.markdown(
+            """
+            <style>
+                div[data-testid="column"]:nth-of-type(2) 
+                {
+                    text-align: start;
+                    min-width: 20px;
+                } 
+            </style>
+            """,unsafe_allow_html=True
+        )
+
+        title1, title2, title3, title4 = st.columns([3,3,3,1])
+        title1.write("**Gesture**")
+        title2.write("**Object**")
+        title3.write("**Action**")
+        all_blobs = azure_connection.list_all_blobs("omnisurface-ml-data")
+
+        for blob in all_blobs:
+            gesture = blob.split(".")[0]
+            try:
+                action = azure_connection.get_or_create_entity("Map", gesture)["Action"]
+                object = azure_connection.get_or_create_entity("Map", gesture)["Object"]
+            except KeyError:
+                action = "Undefined"
+                object = "Undefined"
+
+            col1, col2, col3, col4 = st.columns([3,3,3,1])
+            col1.write(gesture)
+            col2.write(object)
+            col3.write(action)
+            if col4.button("Edit", key=f"edit_{gesture}"):
+                edit_gesture_mapping(gesture)
+
+        st.text(" ")
+
 def display_train_new_gesture():
+    if st.button("Back", key="back_to_home"):
+        st.session_state.page = "home"
+        st.session_state.status = "not_started"
+        st.rerun()
 
     st.title('Train New Gesture')
     
@@ -82,6 +216,7 @@ def display_train_new_gesture():
                 }
                 </style>
     ''', unsafe_allow_html=True)
+    st.session_state.label = label
 
     if st.session_state.status == "not_started":
         # st.button("Start Recording Gesture", key = "start_recording_data", on_click=btn_callback)
@@ -111,21 +246,40 @@ def display_train_new_gesture():
             if st.button("Start Training", key = 'start_training'):
                 with st.spinner("Training model..."):
                     st.session_state.training_result = azure_connection.call_train_model_function()
+                    azure_connection.get_or_create_entity("Map", label)
                     st.session_state.status = "finished"
                     st.rerun()
                     
     elif st.session_state.status == "finished":
         st.subheader(st.session_state.training_result)
-
-        if st.button("Return Home", key='return_home'):
+        # edit_gesture_mapping(label)
+        object = st.selectbox("Select the Object to Control", ["Red Light", "Green Light", "Blue Light"])
+        if object == "Red Light":
+            virtualPin = 1
+        elif object == "Green Light":
+            virtualPin = 2
+        elif object == "Blue Light":
+            virtualPin = 3
+        action = st.selectbox("Select the Action to Trigger", ["Turn On/Off"])
+        if st.button("Save", type="primary"):
+            azure_connection.update_gesture_mapping(label, object, action, virtualPin)
             st.session_state.page = "home"
+            st.session_state.status = "not_started"
+            st.session_state.label = ""
+            st.rerun()
+
+        if st.button("Skip and Return Home", key='return_home'):
+            st.session_state.page = "home"
+            st.session_state.status = "not_started"
+            st.session_state.label = ""
             st.rerun()
 
 
 def main():
     st.set_page_config(
         page_title="OmniSurface",
-        page_icon="🫳"
+        page_icon="🫳",
+        layout="wide"
     )
 
     # button

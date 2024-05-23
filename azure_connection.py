@@ -7,6 +7,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from dotenv import load_dotenv
+from azure.storage.blob import BlobServiceClient
 
 # Load environment variables
 load_dotenv()
@@ -65,6 +66,20 @@ def update_env_variables(record_state=None, label=None, data_count=None, action=
     
     table_client.upsert_entity(entity)    
 
+def update_gesture_mapping(gesture, object, action, virtualPin):
+    connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+    table_service_client = TableServiceClient.from_connection_string(connection_string)
+    table_client = table_service_client.get_table_client(table_name)
+        # 获取现有实体
+    entity = table_client.get_entity(partition_key="Map", row_key=gesture)
+    
+    entity["Action"] = action
+    entity["Object"] = object
+    entity["virtualPin"] = virtualPin
+    entity["blynkToken"] = "iOIcEtlojkcicHEv5TR2uq-t9HCPuxBt"
+    
+    table_client.upsert_entity(entity)  
+
 
 def create_table(table_name):
     """Create a new table in Azure Table Storage if it does not exist."""
@@ -87,11 +102,10 @@ def get_or_create_entity(partition_key, row_key):
             "RowKey": row_key,
             "Timestamp": time.strftime("%y-%m-%d-%H-%M-%S"),
             "Flag": "False",
-            "current_label": '',
-            "data_count": 0 if partition_key == "EnvironmentVariable" else 'null',
-            "Object": 'null',
-            "Action": 'null'
+            "current_label": ''if partition_key == "environment" else 'null',
+            "data_count": 0 if partition_key == "environment" else 'null',
         }
+        table_client.upsert_entity(entity)  
     return entity
 
 
@@ -160,4 +174,26 @@ def call_train_model_function():
             return f"Training failed: {response.status_code} {response.text}"
     except requests.exceptions.RequestException as e:
         return f"Training failed: {e}"
+
+def list_all_blobs(container_name):
+    """List all blobs in the specified container."""
+    connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+    try:
+        blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        container_client = blob_service_client.get_container_client(container_name)
+        blob_list = container_client.list_blobs()
+        return [blob.name for blob in blob_list]
+    except Exception as e:
+        st.error(f"Error listing blobs: {e}")
+        return []
+    
+def delete_blob(container_name,blob_name):
+    connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+    try:
+        blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        blob_client = blob_service_client.get_blob_client(container=container_name,blob=blob_name)
+        blob_client.delete_blob()
+    except Exception as e:
+        pass
+
 # Azure connection---------------------------------------------------------------
