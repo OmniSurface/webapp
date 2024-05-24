@@ -71,7 +71,7 @@ def update_gesture_mapping(gesture, object, action, virtualPin):
     table_service_client = TableServiceClient.from_connection_string(connection_string)
     table_client = table_service_client.get_table_client(table_name)
         # 获取现有实体
-    entity = table_client.get_entity(partition_key="Map", row_key=gesture)
+    entity = table_client.get_entity(partition_key="map", row_key=gesture)
     
     entity["Action"] = action
     entity["Object"] = object
@@ -105,9 +105,29 @@ def get_or_create_entity(partition_key, row_key):
             "current_label": ''if partition_key == "environment" else 'null',
             "data_count": 0 if partition_key == "environment" else 'null',
         }
-        table_client.upsert_entity(entity)  
     return entity
 
+def get_existing_entity(partition_key, row_key):
+    """Get an entity from the table."""
+    try:
+        table_client = table_service.get_table_client(table_name=table_name)
+        entity = table_client.get_entity(partition_key=partition_key, row_key=row_key)
+        return entity
+    except:
+        # st.error(f"Failed to get entity: {e}")
+        return None
+    
+def create_entity(partition_key, row_key):
+    """Create a new entity in the table."""
+    entity = {
+            "PartitionKey": partition_key,
+            "RowKey": row_key,
+            "Timestamp": time.strftime("%y-%m-%d-%H-%M-%S"),
+            "Flag": "False",
+            "current_label": ''if partition_key == "environment" else 'null',
+            "data_count": 0 if partition_key == "environment" else 'null',
+        }
+    upsert_entity(entity)
 
 def increment_data_count(entity, partition_key):
     """Increment the DataCount of an existing entity only for `EnvironmentVariable` partition."""
@@ -145,7 +165,7 @@ def get_map_row_key_by_gesture(gesture_label):
 def get_or_create_map_entity(gesture_label):
     """Get an existing entity or create a new one if it doesn't exist in the `Map` partition."""
     row_key = get_map_row_key_by_gesture(gesture_label)
-    return get_or_create_entity("Map", row_key)
+    return get_or_create_entity("map", row_key)
 
 # Simulate data collection from files
 def collect_gesture_data(gesture):

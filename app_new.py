@@ -37,13 +37,15 @@ def edit_gesture_mapping(gesture):
 
 
 def display_home():
+    # st.markdown(":orange[Test:]")
+    # st.markdown(f":orange[{st.session_state.label}]")
 
-    if st.session_state.label != "":
-        azure_connection.delete_blob("omnisurface-ml-data", f"{st.session_state.label}.json")
-        st.session_state.label = ""
-        st.session_state.count = 0
-        azure_connection.update_env_variables(label="", data_count=0)
-        st.rerun()
+    # if st.session_state.label != "":
+    #     azure_connection.delete_blob("omnisurface-ml-data", f"{st.session_state.label}.json")
+    #     st.session_state.label = ""
+    #     st.session_state.count = 0
+    #     azure_connection.update_env_variables(label="", data_count=0)
+    #     st.rerun()
 
     bg_image_base64 = encode_image("img/background.png")
 
@@ -172,12 +174,20 @@ def display_home():
 
         for blob in all_blobs:
             gesture = blob.split(".")[0]
-            try:
-                action = azure_connection.get_or_create_entity("Map", gesture)["Action"]
-                object = azure_connection.get_or_create_entity("Map", gesture)["Object"]
-            except KeyError:
-                action = "Undefined"
-                object = "Undefined"
+            entity = azure_connection.get_existing_entity("map", gesture)
+            if entity == None:
+                azure_connection.delete_blob("omnisurface-ml-data", f"{gesture}.json")
+                st.session_state.count = 0
+                st.session_state.label = ""
+                azure_connection.update_env_variables(record_state=False,label="", data_count=0)
+                st.rerun()
+            else:
+                try:
+                    action = azure_connection.get_existing_entity("map", gesture)["Action"]
+                    object = azure_connection.get_existing_entity("map", gesture)["Object"]
+                except KeyError:
+                    action = "Undefined"
+                    object = "Undefined"
 
             col1, col2, col3, col4 = st.columns([3,3,3,1])
             col1.write(gesture)
@@ -192,6 +202,9 @@ def display_train_new_gesture():
     if st.button("Back", key="back_to_home"):
         st.session_state.page = "home"
         st.session_state.status = "not_started"
+        st.session_state.label = ""
+        st.session_state.count = 0
+        azure_connection.update_env_variables(record_state=False,label="", data_count=0)
         st.rerun()
 
     st.title('Train New Gesture')
@@ -222,11 +235,12 @@ def display_train_new_gesture():
         # st.button("Start Recording Gesture", key = "start_recording_data", on_click=btn_callback)
         if st.button("Start Recording Gesture", key = "start_recording_data"):
             st.session_state.status = "training"
+            st.session_state.new_data = True
             st.rerun()
     elif st.session_state.status == "training":
         if st.session_state.count < 10:
             if st.session_state.new_data:
-                azure_connection.update_env_variables(record_state=True, label=label, data_count=0)
+                azure_connection.update_env_variables(record_state=True, label=st.session_state.label, data_count=0)
                 st.session_state.count = azure_connection.get_env_variables()[2]
                 st.markdown(f"**Recording Gesture (progress: {st.session_state.count}/10)**")
                 st.caption("When the system detects your gesture, the red light will turn on. Repeat this process ten times.")
@@ -246,7 +260,8 @@ def display_train_new_gesture():
             if st.button("Start Training", key = 'start_training'):
                 with st.spinner("Training model..."):
                     st.session_state.training_result = azure_connection.call_train_model_function()
-                    azure_connection.get_or_create_entity("Map", label)
+                    entity=azure_connection.get_or_create_entity("map", st.session_state.label)
+                    azure_connection.upsert_entity(entity)
                     st.session_state.status = "finished"
                     st.rerun()
                     
@@ -263,15 +278,19 @@ def display_train_new_gesture():
         action = st.selectbox("Select the Action to Trigger", ["Turn On/Off"])
         if st.button("Save", type="primary"):
             azure_connection.update_gesture_mapping(label, object, action, virtualPin)
+            azure_connection.update_env_variables(record_state=False,label="", data_count=0)
             st.session_state.page = "home"
             st.session_state.status = "not_started"
             st.session_state.label = ""
+            st.session_state.count = 0
             st.rerun()
 
         if st.button("Skip and Return Home", key='return_home'):
+            azure_connection.update_env_variables(record_state=False,label="", data_count=0)
             st.session_state.page = "home"
             st.session_state.status = "not_started"
             st.session_state.label = ""
+            st.session_state.count = 0
             st.rerun()
 
 
